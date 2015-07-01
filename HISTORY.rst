@@ -7,6 +7,9 @@ Unreleased
 - Adds an abstract AdjacencyList implementation (refactored from onegov.page).
   [href]
 
+- Adds quote_plus and unquote_plus to compat imports.
+  [treinhard]
+
 0.4.3 (2015-06-30)
 ~~~~~~~~~~~~~~~~~~~
 
