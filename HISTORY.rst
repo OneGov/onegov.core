@@ -4,6 +4,10 @@ Changelog
 Unreleased
 ~~~~~~~~~~
 
+- Adds the ability to define configurations in independent methods (allowing
+  for onegov.core.Framework extensions to provide their own configuration).
+  [href]
+
 0.4.14 (2015-07-17)
 ~~~~~~~~~~~~~~~~~~~
 
