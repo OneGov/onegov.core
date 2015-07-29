@@ -11,6 +11,9 @@ Unreleased
   for onegov.core.Framework extensions to provide their own configuration).
   [href]
 
+- Adds functions to create and deserialize URL safe tokens.
+  [msom]
+
 0.4.14 (2015-07-17)
 ~~~~~~~~~~~~~~~~~~~
 
@@ -82,7 +85,7 @@ Unreleased
 0.4.5 (2015-07-02)
 ~~~~~~~~~~~~~~~~~~~
 
-- Fixes SQLAlchemy error occurring if more than one model used the new 
+- Fixes SQLAlchemy error occurring if more than one model used the new
   AdjacencyList base class.
   [href]
 
