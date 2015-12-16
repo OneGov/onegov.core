@@ -4,7 +4,7 @@ name = 'onegov.core'
 description = (
     'Contains code shared by all OneGov applications.'
 )
-version = '0.11.2'
+version = '0.12.0'
 
 
 def get_long_description():
@@ -48,7 +48,7 @@ setup(
         'isodate',
         'lazy-object-proxy',
         'mailthon>=0.1.1',
-        'morepath>=0.11.2',
+        'morepath>=0.12.0',
         'more.transaction>=0.5',
         'more.webassets',
         'networkx',
