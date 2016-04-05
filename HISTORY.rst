@@ -1,5 +1,9 @@
 Changelog
 ---------
+
+- Fixes meta/content failing if the dictionary is None.
+  [href]
+
 0.18.1 (2016-04-01)
 ~~~~~~~~~~~~~~~~~~~
 
