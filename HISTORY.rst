@@ -2,6 +2,11 @@ Changelog
 ---------
 
 - Adds Morepath 0.13 compatibility.
+
+0.18.2 (2016-04-05)
+~~~~~~~~~~~~~~~~~~~
+
+- Fixes meta/content failing if the dictionary is None.
   [href]
 
 0.18.1 (2016-04-01)
