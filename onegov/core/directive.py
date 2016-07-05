@@ -1,11 +1,29 @@
 from datetime import datetime
 from dectate import Action
 from inspect import isfunction
-from morepath.directive import HtmlAction
+from morepath.directive import ViewAction, HtmlAction
 from onegov.core.cronjobs import register_cronjob
 from onegov.core.framework import Framework
 from onegov.core.utils import Bunch
 from sedate import to_timezone, replace_timezone
+
+
+@Framework.directive('view')
+class CustomViewAction(ViewAction):
+    def perform(self, obj, view_registry):
+        if self.predicates.get('readonly', False):
+            return super().perform(wrap_with_readonly_enforcer(obj), view_registry)
+        else:
+            return super().perform(obj, view_registry)
+
+
+@Framework.directive('html')
+class CustomHtmlAction(HtmlAction):
+    def perform(self, obj, view_registry):
+        if self.predicates.get('readonly', False):
+            return super().perform(wrap_with_readonly_enforcer(obj), view_registry)
+        else:
+            return super().perform(obj, view_registry)
 
 
 @Framework.directive('form')
@@ -69,6 +87,17 @@ class HtmlHandleFormAction(HtmlAction):
                 keys, wrapped,
                 self.render, self.template,
                 self.permission, self.internal)
+
+
+def wrap_with_readonly_enforcer(obj):
+
+    def handle_view(self, request, *args, **kwargs):
+        if request.app.has_database_connection:
+            assert request.app.session().execute('SET TRANSACTION READ ONLY')
+
+        return obj(self, request, *args, **kwargs)
+
+    return handle_view
 
 
 def wrap_with_generic_form_handler(obj, form_class, view_name):
