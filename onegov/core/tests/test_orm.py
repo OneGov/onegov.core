@@ -6,16 +6,22 @@ import time
 import transaction
 import uuid
 
-from datetime import datetime
+from datetime import datetime, timedelta
 from onegov.core.framework import Framework
-from onegov.core.orm import (
-    ModelBase, SessionManager, translation_hybrid, find_models
-)
+from onegov.core.orm import find_models
+from onegov.core.orm import ModelBase
+from onegov.core.orm import SessionManager
+from onegov.core.orm import translation_hybrid
 from onegov.core.orm.abstract import AdjacencyList
-from onegov.core.orm.mixins import (
-    meta_property, content_property, ContentMixin, TimestampMixin
-)
-from onegov.core.orm.types import HSTORE, JSON, UTCDateTime, UUID
+from onegov.core.orm.mixins import content_property
+from onegov.core.orm.mixins import ContentMixin
+from onegov.core.orm.mixins import meta_property
+from onegov.core.orm.mixins import TimestampMixin
+from onegov.core.orm.types import HSTORE
+from onegov.core.orm.types import JSON
+from onegov.core.orm.types import UTCDateTime
+from onegov.core.orm.types import UTCDateTimeRange
+from onegov.core.orm.types import UUID
 from onegov.core.security import Private
 from onegov.core.utils import scan_morepath_modules
 from psycopg2.extensions import TransactionRollbackError
@@ -522,6 +528,67 @@ def test_utc_datetime_aware(postgres_dsn):
     transaction.commit()
 
     assert session.query(Test).one().date == date
+
+    mgr.dispose()
+
+
+def test_utc_datetime_range_naive(postgres_dsn):
+    Base = declarative_base()
+
+    class Test(Base):
+        __tablename__ = 'test'
+
+        id = Column(Integer, primary_key=True)
+        phase = Column(UTCDateTimeRange)
+
+    mgr = SessionManager(postgres_dsn, Base)
+    mgr.set_current_schema('testing')
+
+    session = mgr.session()
+
+    with pytest.raises(sqlalchemy.exc.StatementError):
+        test = Test(phase=(datetime.now(), datetime.now() + timedelta(days=1)))
+        session.add(test)
+        session.flush()
+
+    mgr.dispose()
+
+
+def test_utc_datetime_range_aware(postgres_dsn):
+    Base = declarative_base()
+
+    class Test(Base):
+        __tablename__ = 'test'
+
+        id = Column(Integer, primary_key=True)
+        phase = Column(UTCDateTimeRange)
+
+    mgr = SessionManager(postgres_dsn, Base)
+    mgr.set_current_schema('testing')
+
+    session = mgr.session()
+
+    tz = timezone('Europe/Zurich')
+    date = datetime(2015, 3, 5, 12, 0).replace(tzinfo=tz)
+    test = Test()
+    test.phase = [date, date + timedelta(days=1)]
+    session.add(test)
+    session.flush()
+    transaction.commit()
+
+    record = session.query(Test).one()
+
+    assert record.phase.lower.year == 2015
+    assert record.phase.lower.month == 3
+    assert record.phase.lower.day == 5
+    assert record.phase.lower.hour == 12
+    assert record.phase.lower.hour == 0
+
+    assert record.phase.upper.year == 2015
+    assert record.phase.upper.month == 3
+    assert record.phase.upper.day == 6
+    assert record.phase.upper.hour == 12
+    assert record.phase.upper.hour == 0
 
     mgr.dispose()
 
