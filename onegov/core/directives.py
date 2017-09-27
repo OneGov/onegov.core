@@ -3,7 +3,8 @@ import os.path
 from datetime import datetime
 from dectate import Action, Query
 from inspect import isfunction
-from morepath.directive import HtmlAction
+from morepath.directive import HtmlAction, PathAction, PathCompositeAction
+from onegov.core.path_translations import PathTranslations
 from onegov.core.utils import Bunch
 from sedate import to_timezone, replace_timezone
 
@@ -227,3 +228,45 @@ class TemplateVariablesAction(Action):
 
     def perform(self, func, templatevariables_registry):
         templatevariables_registry.callbacks.append(func)
+
+
+class TranslatablePathAction(PathAction):
+
+    app_class_arg = True
+
+    def __init__(self, *args, **kwargs):
+        self.translations = kwargs.pop('translations', None)
+        super().__init__(*args, **kwargs)
+
+    def identifier(self, path_registry, app_class):
+        return super().identifier(path_registry)
+
+    def discriminators(self, path_registry, app_class):
+        return super().discriminators(path_registry)
+
+    def perform(self, obj, path_registry, app_class):
+        if self.translations:
+            if 'path_translations' not in app_class.__dict__:
+                app_class.path_translations = PathTranslations()
+
+            app_class.path_translations.add_path_translations(
+                self.path,
+                self.translations)
+
+        super().perform(obj, path_registry)
+
+
+class TranslatablePathCompositeAction(PathCompositeAction):
+
+    query_classes = [TranslatablePathAction]
+
+    def __init__(self, *args, **kwargs):
+        self.translations = kwargs.pop('translations', None)
+        super().__init__(*args, **kwargs)
+
+    def actions(self, obj):
+        for action, obj in super().actions(obj):
+            action.translations = self.translations
+            action.__class__ = TranslatablePathAction
+
+            yield action, obj

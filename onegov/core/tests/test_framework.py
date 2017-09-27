@@ -11,8 +11,9 @@ from email.utils import parseaddr
 from freezegun import freeze_time
 from itsdangerous import BadSignature, Signer
 from onegov.core.framework import Framework
-from onegov.core.upgrade import UpgradeState
+from onegov.core.i18n import SiteLocale
 from onegov.core.mail import convert_to_plaintext
+from onegov.core.upgrade import UpgradeState
 from onegov.server import Config, Server
 from unittest.mock import patch
 from webtest import TestApp as Client
@@ -941,3 +942,46 @@ def test_send_hipchat(session):
             'message': 'This is a test message',
             'notify': False,
         }
+
+
+def test_path_translations():
+    class App(Framework):
+        locales = ['de', 'en']
+
+    @App.path(path='/page', translations={
+        'de': '/seite',
+    })
+    class Page(object):
+        pass
+
+    @App.view(model=Page)
+    def view_blog(self, request):
+        return request.link(self)
+
+    @App.path(model=SiteLocale, path='/locale/{locale}')
+    def get_locale(request, app, locale, to=None):
+        return SiteLocale.for_path(app, locale, to)
+
+    @App.view(model=SiteLocale)
+    def view_change_locale(self, request):
+        return self.redirect()
+
+    app = App()
+    app.namespace = 'foo'
+    app.configure_application(disable_memcached=True)
+    app.set_application_id('foo/bar')
+
+    c = Client(app)
+
+    assert '/page' in c.get('/locale/en?to=/page').follow()
+    assert '/page' in c.get('/locale/en?to=/seite').follow()
+    assert '/seite' in c.get('/locale/de?to=/page').follow()
+    assert '/seite' in c.get('/locale/de?to=/seite').follow()
+
+    c.get('/locale/de').follow()
+    assert c.get('/page')
+    assert c.get('/seite')
+
+    c.get('/locale/en').follow()
+    assert c.get('/seite')
+    assert c.get('/page')

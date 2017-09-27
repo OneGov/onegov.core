@@ -159,6 +159,10 @@ class CoreRequest(IncludeRequest, ReturnToMixin):
         if self.x_vhm_root:
             url = '/' + utils.lchop(url, self.x_vhm_root).lstrip('/')
 
+        if self.app.path_translations:
+            url = self.app.path_translations.translate_outgoing_path(
+                self.locale, url)
+
         if self.x_vhm_host:
             url = self.x_vhm_host + url
         else:

@@ -29,12 +29,12 @@ from dectate import directive
 from email.utils import parseaddr, formataddr
 from itsdangerous import BadSignature, Signer
 from mailthon.middleware import TLS, Auth
-from morepath.publish import resolve_model, get_view_name
 from more.transaction import TransactionApp
 from more.transaction.main import transaction_tween_factory
 from more.webassets import WebassetsApp
 from more.webassets.core import webassets_injector_tween
 from more.webassets.tweens import METHODS, CONTENT_TYPES
+from morepath.publish import resolve_model, get_view_name
 from onegov.core import cache, log, utils
 from onegov.core import directives
 from onegov.core.datamanager import MailDataManager
@@ -69,6 +69,11 @@ class Framework(TransactionApp, WebassetsApp, OrmCacheApp, ServerApplication):
     cronjob = directive(directives.CronjobAction)
     static_directory = directive(directives.StaticDirectoryAction)
     template_variables = directive(directives.TemplateVariablesAction)
+    _path = directive(directives.TranslatablePathAction)
+    path = directive(directives.TranslatablePathCompositeAction)
+
+    #: translates paths (request urls) into various languages
+    path_translations = None
 
     #: the request cache is initialised/emptied before each request
     request_cache = None
@@ -938,6 +943,16 @@ def get_cronjobs_enabled():
 
     """
     return True
+
+
+@Framework.tween_factory(over=transaction_tween_factory)
+def request_path_translation_tween_factory(app, handler):
+    def request_path_translation_tween(request):
+        if app.path_translations:
+            app.path_translations.transform_incoming_request(request)
+
+        return handler(request)
+    return request_path_translation_tween
 
 
 @Framework.tween_factory(over=transaction_tween_factory)
