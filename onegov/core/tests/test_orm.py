@@ -10,7 +10,7 @@ from datetime import datetime
 from dogpile.cache.api import NO_VALUE
 from onegov.core.framework import Framework
 from onegov.core.orm import (
-    ModelBase, SessionManager, translation_hybrid, find_models
+    ModelBase, SessionManager, SQLQuery, translation_hybrid, find_models
 )
 from onegov.core.orm.abstract import AdjacencyList
 from onegov.core.orm.abstract import Associable, associated
@@ -24,7 +24,7 @@ from onegov.core.security import Private
 from onegov.core.utils import scan_morepath_modules
 from psycopg2.extensions import TransactionRollbackError
 from pytz import timezone
-from sqlalchemy import Column, Integer, Text, ForeignKey, func
+from sqlalchemy import Column, Integer, Text, ForeignKey, func, select
 from sqlalchemy.exc import OperationalError
 from sqlalchemy.ext.declarative import declarative_base
 from sqlalchemy.ext.mutable import MutableDict
@@ -1640,3 +1640,133 @@ def test_associable_many_to_many(postgres_dsn):
     session.flush()
 
     assert session.query(Address).count() == 1
+
+
+def test_sql_query_arguments():
+    columns_by_table = SQLQuery("SET vars.table_name = ''")
+    assert tuple(columns_by_table.arguments.keys()) == ('table_name', )
+
+    with pytest.raises(TypeError) as e:
+        columns_by_table()
+
+    msg = "query is missing 1 required keyword argument: 'table_name'"
+    assert msg in str(e)
+
+    with pytest.raises(TypeError) as e:
+        columns_by_table(column='test')
+
+    msg = "query got an unexpected keyword argument: 'column'"
+    assert msg in str(e)
+
+
+def test_sql_query_arguments_with_defaults():
+    columns_by_table = SQLQuery("""
+        SET vars.table_name = ''; -- 'foo'
+        SELECT * FROM information-schema.columns
+        WHERE table_name = current_setting('vars.table_name');
+    """)
+
+    columns_by_table.arguments['table_name'] == "'foo'"
+
+    # should not raise
+    columns_by_table()
+
+
+def test_sql_query_body():
+    columns_by_table = SQLQuery("SELECT * FROM foobar")
+    assert not columns_by_table.arguments
+    assert columns_by_table.body == "SELECT * FROM foobar"
+
+    columns_by_table = SQLQuery((
+        "SET vars.table_name = '';\n"
+        "SELECT * FROM foobar"
+    ))
+    assert tuple(columns_by_table.arguments.keys()) == ('table_name', )
+    assert columns_by_table.body == "SELECT * FROM foobar"
+
+
+def test_sql_query_execute(session):
+    columns_by_table = SQLQuery("""
+        SET vars.table_name = 'foobar';
+
+        WITH
+            columns AS (
+                SELECT *
+                  FROM information_schema.columns
+                 WHERE table_name = current_setting('vars.table_name')::text
+            )
+
+        SELECT table_name, column_name, data_type from columns
+    """)
+
+    query = columns_by_table(table_name='pg_user')
+    names = [r.column_name for r in session.execute(query)]
+    assert names == [
+        'usename',
+        'usesysid',
+        'usecreatedb',
+        'usesuper',
+        'userepl',
+        'usebypassrls',
+        'passwd',
+        'valuntil',
+        'useconfig'
+    ]
+
+    selectable = query.columns(
+        table_name=Text,
+        column_name=Text,
+        data_type=Text
+    ).alias('columns_by_table')
+
+    results = session.execute(
+        select([selectable.c.data_type]).where(
+            selectable.c.column_name == 'passwd')
+    ).fetchall()
+
+    assert results == [('text', )]
+
+
+def test_sql_default_values_query(session):
+    columns_by_table = SQLQuery("""
+        SET vars.table_name = 'foobar'; -- ('pg_user_mappings', )
+
+        WITH
+            columns AS (
+                SELECT *
+                  FROM information_schema.columns
+                 WHERE table_name IN current_setting('vars.table_name')
+            )
+
+        SELECT table_name, column_name, data_type from columns
+    """)
+
+    query = columns_by_table()
+
+    names = [r.column_name for r in session.execute(query)]
+    assert names and names != [
+        'usename',
+        'usesysid',
+        'usecreatedb',
+        'usesuper',
+        'userepl',
+        'usebypassrls',
+        'passwd',
+        'valuntil',
+        'useconfig'
+    ]
+
+    query = columns_by_table(table_name=('pg_user', ))
+
+    names = [r.column_name for r in session.execute(query)]
+    assert names == [
+        'usename',
+        'usesysid',
+        'usecreatedb',
+        'usesuper',
+        'userepl',
+        'usebypassrls',
+        'passwd',
+        'valuntil',
+        'useconfig'
+    ]

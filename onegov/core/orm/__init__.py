@@ -1,5 +1,6 @@
 from onegov.core.orm.cache import orm_cached
 from onegov.core.orm.session_manager import SessionManager
+from onegov.core.orm.sql import SQLQuery
 from sqlalchemy import event, inspect
 from sqlalchemy.ext.declarative import declarative_base
 from sqlalchemy.orm import object_session
@@ -110,5 +111,10 @@ event.listen(ModelBase, 'attribute_instrument', configure_listener)
 
 
 __all__ = [
-    'Base', 'SessionManager', 'translation_hybrid', 'find_models', 'orm_cached'
+    'Base',
+    'SessionManager',
+    'SQLQuery',
+    'translation_hybrid',
+    'find_models',
+    'orm_cached'
 ]
