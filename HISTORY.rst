@@ -1,5 +1,9 @@
 Changelog
 ---------
+
+- Adds the ability to turn raw SQL statements into SQLAlchemy selectables.
+  [href]
+
 0.54.2 (2017-12-11)
 ~~~~~~~~~~~~~~~~~~~
 
