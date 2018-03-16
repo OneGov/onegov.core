@@ -1,5 +1,10 @@
 Changelog
 ---------
+
+- Changes the object_src of the default content security policy to self. This
+  allows PDF viewers of browser to work properly.
+  [msom]
+
 0.65.0 (2018-03-06)
 ~~~~~~~~~~~~~~~~~~~
 
