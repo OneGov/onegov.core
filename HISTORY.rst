@@ -1,5 +1,7 @@
 Changelog
 ---------
+0.66.1 (2018-04-02)
+~~~~~~~~~~~~~~~~~~~
 
 - Replaces python-memcached with libmc.
   [href]
