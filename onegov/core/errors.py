@@ -30,3 +30,19 @@ class EmptyLineInFileError(CSVError):
 
 class AlreadyLockedError(Exception):
     """ Raised if :func:`onegov.core.locking.lock` fails to acquire a lock. """
+
+    def __init__(self, namespace, key):
+        self.namespace = namespace
+        self.key = key
+
+
+class WorkerError(Exception):
+    pass
+
+
+class TooManyWorkersError(WorkerError):
+    pass
+
+
+class TooManyInstancesError(WorkerError):
+    pass

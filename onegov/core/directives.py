@@ -1,5 +1,6 @@
 import os.path
 
+from collections import namedtuple
 from datetime import datetime
 from dectate import Action, Query
 from inspect import isfunction
@@ -227,3 +228,31 @@ class TemplateVariablesAction(Action):
 
     def perform(self, func, templatevariables_registry):
         templatevariables_registry.callbacks.append(func)
+
+
+class WorkerRegistration(namedtuple(
+    'WorkerRegistration', ('name', 'function', 'max_instances'))
+):
+    pass
+
+
+class WorkerRegistrationAction(Action):
+    """ Registers a function as a worker. See :module:`ongov.core.worker` for
+    more information.
+
+    """
+
+    config = {
+        'worker_registry': dict
+    }
+
+    def __init__(self, name, max_instances=1):
+        self.name = name
+        self.max_instances = max_instances
+
+    def identifier(self, worker_registry):
+        return self.name
+
+    def perform(self, func, worker_registry):
+        worker_registry[self.name] = WorkerRegistration(
+            self.name, func, self.max_instances)

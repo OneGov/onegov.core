@@ -83,6 +83,7 @@ class Framework(
     cronjob = directive(directives.CronjobAction)
     static_directory = directive(directives.StaticDirectoryAction)
     template_variables = directive(directives.TemplateVariablesAction)
+    worker = directive(directives.WorkerRegistrationAction)
 
     #: the request cache is initialised/emptied before each request
     request_cache = None
@@ -514,6 +515,11 @@ class Framework(
     def cache(self):
         """ A cache that might be invalidated frequently. """
         return self.get_cache(self.application_id + ':x', expiration_time=3600)
+
+    @property
+    def worker_cache(self):
+        """ A cache reserved for workers. """
+        return self.get_cache(self.application_id + ':w', expiration_time=3600)
 
     @property
     def settings(self):

@@ -222,6 +222,9 @@ class CoreRequest(IncludeRequest, ContentSecurityRequest, ReturnToMixin):
 
         return self.link(self.app.modules.theme.ThemeFile(filename))
 
+    def bind_to_session_id(self, session_id):
+        self.virtual_session_id = session_id
+
     @cached_property
     def browser_session(self):
         """ Returns a browser_session bound to the request. Works via cookies,
@@ -235,7 +238,10 @@ class CoreRequest(IncludeRequest, ContentSecurityRequest, ReturnToMixin):
 
         """
 
-        if 'session_id' in self.cookies:
+        if hasattr(self, 'virtual_session_id'):
+            session_id = self.virtual_session_id
+
+        elif 'session_id' in self.cookies:
             session_id = self.app.unsign(self.cookies['session_id'])
             session_id = session_id or random_token()
         else:

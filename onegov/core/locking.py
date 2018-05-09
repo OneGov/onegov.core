@@ -63,7 +63,7 @@ def lock(session, namespace, key):
     locked = session.execute(func.pg_try_advisory_lock(id)).scalar()
 
     if not locked:
-        raise AlreadyLockedError()
+        raise AlreadyLockedError(namespace, key)
 
     try:
         yield
