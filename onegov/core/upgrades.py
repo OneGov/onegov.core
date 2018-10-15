@@ -88,3 +88,33 @@ def migrate_to_jsonb(connection, schemas):
             # commits/rolls back the current transaction (to keep the number
             # of required locks to a minimum)
             yield True
+
+
+@upgrade_task('Rename associated tables')
+def rename_associated_tables(context):
+    bases = set()
+
+    for cls in find_models(Base, lambda cls: issubclass(cls, Associable)):
+        bases.add(cls.association_base())
+
+    for base in bases:
+        for link in base.registered_links.values():
+            new_name = link.table.name
+            old_name = new_name[:new_name.rfind(link.attribute)].rstrip('_')
+            if new_name == old_name:
+                continue
+
+            if context.has_table(old_name) and context.has_table(new_name):
+                # We expect that the ORM already created the new tables at this
+                # point while still having the old one - we therefore drop the
+                # newly created table (which should be empty at this time).
+                sql = f'SELECT count(*) FROM {new_name}'
+                assert context.session.execute(sql).fetchone().count == 0, f"""
+                    Can not rename the associated table "{old_name}" to
+                    "{new_name}", the new table "{new_name}" already exists
+                    and contains values.
+                """
+                context.operations.drop_table(new_name)
+
+            if context.has_table(old_name) and not context.has_table(new_name):
+                context.operations.rename_table(old_name, new_name)
