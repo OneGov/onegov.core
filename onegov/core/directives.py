@@ -128,10 +128,13 @@ class CronjobAction(Action):
         'cronjob_registry': Bunch
     }
 
+    counter = iter(range(1, 123456789))
+
     def __init__(self, hour, minute, timezone):
         self.hour = hour
         self.minute = minute
         self.timezone = timezone
+        self.name = next(self.counter)
 
     def identifier_by_hour_and_minute(self, hour, minute):
         return to_timezone(
@@ -142,19 +145,7 @@ class CronjobAction(Action):
         )
 
     def identifier(self, **kw):
-        # return a key to the hour/minute on a fixed day, this way it's
-        # impossible to have two cronjobs running at the exact same time.
-        hour = 0 if self.hour == '*' else self.hour
-        return self.identifier_by_hour_and_minute(hour, self.minute)
-
-    def discriminators(self, **kw):
-        if self.hour != '*':
-            return ()
-
-        return tuple(
-            self.identifier_by_hour_and_minute(hour, self.minute)
-            for hour in range(0, 24) if hour != 0  # already in identifier
-        )
+        return self.name
 
     def perform(self, func, cronjob_registry):
         from onegov.core.cronjobs import register_cronjob
