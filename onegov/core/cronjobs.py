@@ -53,12 +53,13 @@ import pycurl
 
 from contextlib import suppress
 from datetime import datetime, timedelta, date
-from onegov.core.framework import Framework, log
-from onegov.core.utils import local_lock
 from onegov.core.errors import AlreadyLockedError
+from onegov.core.framework import Framework, log
 from onegov.core.security import Public
+from onegov.core.utils import local_lock
 from random import Random
 from sedate import ensure_timezone, replace_timezone, utcnow
+from sentry_sdk import capture_exception
 from threading import Thread
 from urllib.parse import quote_plus, unquote_plus
 
@@ -168,7 +169,7 @@ class Job(object):
         """ Returns the time (epoch) when this job should be run next, not
         taking into account scheduling concerns (like when it has run last).
 
-        If no runtime is found for today, a runtime is search tomorrow. If
+        If no runtime is found for today, a runtime is searched tomorrow. If
         that doesn't work, no next runtime exists. This would be an error,
         since we do not currently support things like weekly cronjobs.
 
@@ -266,7 +267,6 @@ class ApplicationBoundCronjobs(Thread):
             job.next_runtime()
 
     def run(self):
-
         # the lock ensures that only one thread per application id is
         # in charge of running the scheduled jobs. If another thread already
         # has the lock, this thread will end immediately and be GC'd.
@@ -292,17 +292,24 @@ class ApplicationBoundCronjobs(Thread):
     def process_job(self, job):
         log.info(f"Executing {job.title}")
 
-        start = datetime.utcnow()
-        job.function()
-        duration = (datetime.utcnow() - start).total_seconds()
+        try:
+            start = datetime.utcnow()
+            job.function()
+            duration = (datetime.utcnow() - start).total_seconds()
 
-        if duration > CRONJOB_MAX_DURATION:
-            log.warn(f"{job.title} took too long ({duration})s")
-        else:
-            log.info(f"{job.title} finished in {duration}s")
+            if duration > CRONJOB_MAX_DURATION:
+                log.warn(f"{job.title} took too long ({duration})s")
+            else:
+                log.info(f"{job.title} finished in {duration}s")
 
-        # each time we finish a job, we have to schedule the next incantation
-        self.schedule(job)
+        except Exception as e:
+            # exceptions in OneGov Cloud are captured mostly automatically, but
+            # here this is different because we run off the main-thread and
+            # are not part of the request/response cycle
+            capture_exception(e)
+        finally:
+            # schedule the job again, even if there were errors
+            self.schedule(job)
 
 
 @Framework.path(model=Job, path='/cronjobs/{id}')
