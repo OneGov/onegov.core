@@ -21,12 +21,9 @@ Warnings
 
 The function is called *once* for *each* application id! So when the time
 comes for your function to be called, you can expect many calls on a busy
-site.
-
-To mitigate the trampling herd problem the implementation will insert a few
-seconds here and there to space out cronjob calls. There's no guarantee that
-your function will be called on time. Especially on busy sites it is possible
-to see quite a bit of drift as the server has other things to do.
+site. Each application id also gets its own thread, which is not terribly
+efficient. It is expected that this behaviour will change in the future
+with an improved scheduling mechanism.
 
 Also note that the scheduler will offset your function automatically by up
 to 30 seconds, to mitigate against the trampling herd problem.
@@ -35,6 +32,14 @@ As a result you want to use this feature sparingly. If possible do clean up
 on user action (either manually, or when the user changes something somewhat
 related). For example, we clean up old reservation records whenever a new
 reservation is received.
+
+This also means that it is better to have a cronjob that runs once a day
+on a specific time (say at 13:37 each day), than a cronjob that runs exactly
+on 00:00 when a lot of other things might be scheduled.
+
+Also the more a cronjob is called the costlier it is for the site (a job
+that runs every minute is naturally more heavy on resources than one run
+every 15 minutes).
 
 Finally note that cronjobs for any given application id are only run once the
 first request to the application with that id has been made. The reason for
@@ -162,10 +167,16 @@ class Job(object):
         return self.url.split('://', maxsplit=1)[-1]
 
     def runtimes(self, today):
-        """ Generates the runtimes of this job on the current day. """
+        """ Generates the runtimes of this job on the given day, excluding
+        runtimes in the past.
 
+        """
+        now = utcnow()
         today = datetime(today.year, today.month, today.day)
-        hours = tuple(parse_cron(self.hour, type='hour'))
+
+        hours = parse_cron(self.hour, type='hour')
+
+        # we need to loop over this multiple time, therefore put into a tuple
         minutes = tuple(parse_cron(self.minute, type='minute'))
 
         for hour in hours:
@@ -174,7 +185,8 @@ class Job(object):
                 runtime = replace_timezone(runtime, self.timezone)
                 runtime += timedelta(seconds=self.offset)
 
-                yield runtime
+                if now <= runtime:
+                    yield runtime
 
     def next_runtime(self, today=None):
         """ Returns the time (epoch) when this job should be run next, not
@@ -185,11 +197,9 @@ class Job(object):
         since we do not currently support things like weekly cronjobs.
 
         """
-        now = utcnow()
 
         for runtime in self.runtimes(today or date.today()):
-            if now < runtime:
-                return runtime
+            return runtime
 
         if not today:
             return self.next_runtime(date.today() + timedelta(days=1))
@@ -285,9 +295,9 @@ class ApplicationBoundCronjobs(Thread):
         with suppress(AlreadyLockedError):
             with local_lock('cronjobs-thread', self.application_id):
                 log.info(f"Started cronjob thread for {self.application_id}")
-                self.run_exclusively()
+                self.run_locked()
 
-    def run_exclusively(self):
+    def run_locked(self):
         for job in self.jobs:
             log.info(f"Enabled {job.title}")
             self.schedule(job)
