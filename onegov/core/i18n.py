@@ -56,7 +56,7 @@ VALID_LANGUAGE_EXPRESSION = re.compile(r'^[a-z]{2}(_[A-Z]{2})?$')
 
 # to keep the log output short
 POFILE_PATH_EXPRESSION = re.compile(
-    r'.*locale/(?P<locale>[a-zA-Z_]+)/LC_MESSAGES/(?P<module>[a-zA-Z_\.]+)')
+    r'.*/(?P<locale>[a-zA-Z_]+)/LC_MESSAGES/(?P<module>[a-zA-Z_\.]+)')
 
 
 @Framework.setting(section='i18n', name='localedirs')

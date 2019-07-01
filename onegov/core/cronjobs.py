@@ -124,10 +124,11 @@ class Job(object):
         'minute',
         'timezone',
         'offset',
+        'once',
         'url',
     )
 
-    def __init__(self, function, hour, minute, timezone, url=None):
+    def __init__(self, function, hour, minute, timezone, once=False, url=None):
         # the name is used to make sure the job is only run by one process
         # at a time in multi process environment. It needs to be unique
         # for each process but the same in all processes.
@@ -138,6 +139,7 @@ class Job(object):
         self.minute = minute
         self.timezone = ensure_timezone(timezone)
         self.url = url
+        self.once = once
 
         # avoid trampling herds with a predictable random number (i.e one that
         # stays the same between repeated restarts on the same platform)
@@ -226,6 +228,7 @@ class Job(object):
             hour=self.hour,
             minute=self.minute,
             timezone=self.timezone,
+            once=self.once,
             url=url)
 
 
@@ -309,7 +312,9 @@ class ApplicationBoundCronjobs(Thread):
             capture_exception(e)
         finally:
             # schedule the job again, even if there were errors
-            self.schedule(job)
+
+            if not job.once:
+                self.schedule(job)
 
 
 @Framework.path(model=Job, path='/cronjobs/{id}')
@@ -327,7 +332,7 @@ def run_job(self, request):
     self.function(request)
 
 
-def register_cronjob(registry, function, hour, minute, timezone):
+def register_cronjob(registry, function, hour, minute, timezone, once=False):
 
     # raises an error if the result cannot be parsed
     tuple(parse_cron(hour, 'hour'))
@@ -337,5 +342,5 @@ def register_cronjob(registry, function, hour, minute, timezone):
         registry.cronjobs = {}
         registry.cronjob_threads = {}
 
-    job = Job(function, hour, minute, timezone)
+    job = Job(function, hour, minute, timezone, once=once)
     registry.cronjobs[job.name] = job

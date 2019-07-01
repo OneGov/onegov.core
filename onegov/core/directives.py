@@ -1,11 +1,9 @@
 import os.path
 
-from datetime import datetime
 from dectate import Action, Query
 from inspect import isclass
 from morepath.directive import HtmlAction
 from onegov.core.utils import Bunch
-from sedate import to_timezone, replace_timezone
 
 
 class HtmlHandleFormAction(HtmlAction):
@@ -130,19 +128,12 @@ class CronjobAction(Action):
 
     counter = iter(range(1, 123456789))
 
-    def __init__(self, hour, minute, timezone):
+    def __init__(self, hour, minute, timezone, once=False):
         self.hour = hour
         self.minute = minute
         self.timezone = timezone
         self.name = next(self.counter)
-
-    def identifier_by_hour_and_minute(self, hour, minute):
-        return to_timezone(
-            replace_timezone(
-                datetime(2016, 1, 1, hour, minute),
-                self.timezone
-            ), 'UTC'
-        )
+        self.once = once
 
     def identifier(self, **kw):
         return self.name
@@ -151,7 +142,12 @@ class CronjobAction(Action):
         from onegov.core.cronjobs import register_cronjob
 
         register_cronjob(
-            cronjob_registry, func, self.hour, self.minute, self.timezone)
+            registry=cronjob_registry,
+            function=func,
+            hour=self.hour,
+            minute=self.minute,
+            timezone=self.timezone,
+            once=self.once)
 
 
 class StaticDirectoryAction(Action):
