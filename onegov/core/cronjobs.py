@@ -143,7 +143,16 @@ class Job(object):
 
         # avoid trampling herds with a predictable random number (i.e one that
         # stays the same between repeated restarts on the same platform)
-        self.offset = Random(self.url or self.name).randint(0, 300) / 10
+        max_offset_seconds = 30
+
+        # we need an offset in seconds, but calculate one in ms
+        prec = 1000
+
+        # use a predictable seed
+        seed = self.url or self.name
+
+        # pick an offset
+        self.offset = Random(seed).randint(0, max_offset_seconds * prec) / prec
 
     @property
     def title(self):
