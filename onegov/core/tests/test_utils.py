@@ -137,6 +137,19 @@ def test_linkify():
         == '<a href="mailto:info@example.org">info@example.org</a><br>'
 
 
+@pytest.mark.parametrize("tel", [
+    ('Tel. +41 41 728 33 11',
+     'Tel. <a href="tel:+41 41 728 33 11">+41 41 728 33 11</a>'),
+    ('\nTel. +41 41 728 33 11\n',
+     '\nTel. <a href="tel:+41 41 728 33 11">+41 41 728 33 11</a>\n'),
+
+])
+def test_linkify_with_phone(tel):
+    print('eval: ', utils.linkify(tel[0], escape=True))
+    assert utils.linkify(tel[0], escape=False) == tel[1]
+    assert utils.linkify(tel[0], escape=True) == tel[1]
+
+
 def test_increment_name():
     assert utils.increment_name('test') == 'test-1'
     assert utils.increment_name('test-2') == 'test-3'

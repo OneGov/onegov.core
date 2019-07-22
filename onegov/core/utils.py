@@ -55,11 +55,11 @@ _email_regex = re.compile((
 _multiple_newlines = re.compile(r'\n{2,}', re.MULTILINE)
 
 # matches duplicate whitespace
-_duplicate_whitespace = re.compile(r'\s+')
+_duplicate_whitespace = re.compile(r'\s{2,}')
 
 # regex pattern for swiss phone numbers
 _phone_ch_country_code = r"(\+41|0041|[^\+]?0)"
-_phone_ch = re.compile(_phone_ch_country_code + r'([\s\d]+)')
+_phone_ch = re.compile(_phone_ch_country_code + r'([ \r\f\t\d]+)')
 
 # for yubikeys
 ALPHABET = 'cbdefghijklnrtuv'
@@ -304,6 +304,9 @@ def linkify_phone(text):
 
     """
 
+    def strip_whitespace(number):
+        return re.sub(r'\s', '', number)
+
     def is_valid_length(number):
         if number.startswith('00'):
             return len(number) == 13
@@ -315,8 +318,8 @@ def linkify_phone(text):
 
     def handle_match(match):
         number = match.group(0)
-
-        if is_valid_length(number.replace(' ', '')):
+        assert not number.endswith('\n')
+        if is_valid_length(strip_whitespace(number)):
             number = remove_duplicate_whitespace(number).strip()
             return f'<a href="tel:{number}">{number}</a>'
 
@@ -343,13 +346,17 @@ def linkify(text, escape=True):
     if not text:
         return text
 
-    linkified = bleach.linkify(text, parse_email=True)
+    linkified = linkify_phone(bleach.linkify(text, parse_email=True))
 
     if not escape:
         return linkified
 
     return bleach.clean(
-        linkified, tags=['a'], attributes={'a': ['href', 'rel']})
+        linkified,
+        tags=['a'],
+        attributes={'a': ['href', 'rel']},
+        protocols=['http', 'https', 'mailto', 'tel']
+    )
 
 
 def remove_duplicate_whitespace(text):
